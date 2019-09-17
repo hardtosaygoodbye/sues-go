@@ -36,10 +36,7 @@ func init() {
 	fmt.Println("数据库连接成功")
 
 	proxyAddr := "http://127.0.0.1:8080"
-	proxy, err := url.Parse(proxyAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	proxy, _ := url.Parse(proxyAddr)
 	netTransport = &http.Transport{
 		Proxy: http.ProxyURL(proxy),
 		MaxIdleConnsPerHost: 10,
@@ -161,7 +158,7 @@ func getCaptchaAndCookie() (captcha string,cookie string, err error) {
 			break
 		}
 		// 获取验证码
-		req, _ := http.NewRequest("http://jxxt.sues.edu.cn/eams/captcha/image.action", strings.NewReader(""))
+		req, _ := http.NewRequest("GET", "http://jxxt.sues.edu.cn/eams/captcha/image.action", strings.NewReader(""))
 		client := &http.Client{
 			Transport: netTransport,
 		}

@@ -223,7 +223,7 @@ func getStdID(cookie string) (stdID string,err error){
 // 获取课表数据
 func kgetCourses(cookie, stdID string) (courses []Course, err error) {
   	fmt.Println("获取课表数据")
-	req, _ := http.NewRequest("GET","http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=courseTable&setting.forSemester=1&setting.kind=std&semester.id=422&ids=" + stdID + "&ignoreHead=1",strings.NewReader(""))
+	req, _ := http.NewRequest("GET","http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=courseTable&setting.forSemester=1&setting.kind=std&semester.id=441&ids=" + stdID + "&ignoreHead=1",strings.NewReader(""))
 	req.Header.Set("Cookie",cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{}
@@ -252,7 +252,8 @@ func kgetCourses(cookie, stdID string) (courses []Course, err error) {
 				if course.Week != "" {
 					course.Time = course.Time + ","
 				}
-				course.Time = course.Time + string(line[len(line)-3])
+				// index =2*unitCount+7;
+				course.Time = course.Time + strings.Split(strings.Split(line,"+")[1],";\r")[0]
 			}
 		}
 		course.Time = course.Time[1:]

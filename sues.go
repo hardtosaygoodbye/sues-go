@@ -155,6 +155,8 @@ func getCaptchaAndCookie() (captcha string,cookie string, err error) {
 		// 生成图片名
 		imgName := getRandomString(10)
 		out, _ := os.Create(imgName)
+		// 删除临时文件
+		defer os.Remove(imgName)
 		io.Copy(out, bytes.NewReader(body))
 		// 获取cookie
 		cookies := resp.Header["Set-Cookie"]
@@ -167,6 +169,8 @@ func getCaptchaAndCookie() (captcha string,cookie string, err error) {
 		cmd := exec.Command("/bin/bash", "-c", "tesseract " + imgName + " " + imgName + " -l eng" )
 		cmd.Run()
 		captchaTxt,_ := ioutil.ReadFile(imgName + ".txt")
+		// 删除临时文件
+		defer os.Remove(imgName + ".txt")
 		captcha = strings.Split(string(captchaTxt), "\n")[0]
 		captcha = strings.Replace(captcha, " ", "",-1)
 		isValid,_ := regexp.MatchString("^[a-z]{4,5}$",captcha)
@@ -195,8 +199,6 @@ func loginJxxt(username, password, captcha, cookie string) (err error) {
 	client := &http.Client{}
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("debug")
-	fmt.Println(string(body))
 	if strings.Contains(string(body), "Wrong Captcha String") {
 		return errors.New("验证码错误")
 	} else if strings.Contains(string(body), "Error Password") {

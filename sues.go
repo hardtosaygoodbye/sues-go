@@ -25,7 +25,7 @@ var db *gorm.DB
 
 func init() {
 	var err error
-	db, err = gorm.Open("mysql", "root:swiftwhale2018@tcp(127.0.0.1)/sues?charset=utf8&parseTime=True&loc=Local")
+	db, err = gorm.Open("mysql", "root:swiftwhale2018@tcp(127.0.0.1)/pineapple?charset=utf8&parseTime=True&loc=Local")
 	if err != nil {
 		fmt.Println(err)
 		return

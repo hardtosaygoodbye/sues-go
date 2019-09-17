@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -19,10 +15,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
 var db *gorm.DB
-
 var netTransport *http.Transport
 
 func init() {
@@ -36,27 +36,24 @@ func init() {
 	fmt.Println("数据库连接成功")
 
 	proxyAddr := "http://127.0.0.1:8080"
-	proxy, err := url.Parse(proxyAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	proxy, _ := url.Parse(proxyAddr)
 	netTransport = &http.Transport{
-		Proxy: http.ProxyURL(proxy),
-		MaxIdleConnsPerHost: 10,
-		ResponseHeaderTimeout: time.Second *time.Duration(5),
+		Proxy:                 http.ProxyURL(proxy),
+		MaxIdleConnsPerHost:   10,
+		ResponseHeaderTimeout: time.Second * time.Duration(5),
 	}
 }
 
-// 接口
+// 获取课程
 func GetSUESCourses(c *gin.Context) {
-	var err error
 	// 获取验证码和cookie
-	Start:
-	captcha, cookie, err := getCaptchaAndCookie()
-	if err != nil {
-		c.JSON(400, gin.H{"detail":err.Error()})
+Start:
+	captcha, cookie, err0 := getCaptchaAndCookie()
+	if err0 != nil {
+		c.JSON(400, gin.H{"detail": err0.Error()})
 		return
 	}
+	// 登录
 	username := c.Query("username")
 	password := c.Query("password")
 	if len(username) == 0 {
@@ -64,38 +61,38 @@ func GetSUESCourses(c *gin.Context) {
 		return
 	}
 	if len(password) == 0 {
-		c.JSON(400, gin.H{"detail":"密码缺失"})
+		c.JSON(400, gin.H{"detail": "密码缺失"})
 	}
-	// 登录
-	err = loginJxxt(username, password, captcha, cookie)
-	if err != nil {
-		if err.Error() == "验证码错误" {
+	err1 := loginJxxt(username, password, captcha, cookie)
+	if err1 != nil {
+		if err1.Error() == "验证码错误" {
 			goto Start
 		} else {
-			c.JSON(400, gin.H{"detail": err.Error()})
+			c.JSON(400, gin.H{"detail": err1.Error()})
 			return
 		}
 	}
 	// 获取stdID
-	stdID, err := getStdID(cookie)
-	if err != nil {
-		c.JSON(400, gin.H{"detail": err.Error()})
+	stdID, err2 := getStdID(cookie)
+	if err2 != nil {
+		c.JSON(400, gin.H{"detail": err2.Error()})
 		return
 	}
 	// 获取课表
-	courses, err := kgetCourses(cookie, stdID)
-	if err != nil {
-		c.JSON(400, gin.H{"detail": err.Error()})
+	courses, err3 := kgetCourses(cookie, stdID)
+	if err3 != nil {
+		c.JSON(400, gin.H{"detail": err3.Error()})
 		return
 	}
 	c.JSON(200, courses)
-	go getStudentMsg(cookie,password)
+	go getStudentMsg(cookie, password)
 }
 
 // 个人信息页面获取
 func getStudentMsg(cookie, password string) {
-	req, _ := http.NewRequest("POST","http://jxxt.sues.edu.cn/eams/studentDetail.action",strings.NewReader(""))
-	req.Header.Set("Cookie",cookie)
+	fmt.Println("个人信息获取")
+	req, _ := http.NewRequest("POST", "http://jxxt.sues.edu.cn/eams/studentDetail.action", strings.NewReader(""))
+	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", "http://jxxt.sues.edu.cn/eams/d…?method=moduleList&parentCode=")
 	client := &http.Client{
@@ -131,7 +128,7 @@ func getStudentMsg(cookie, password string) {
 		case 45:
 			student.Nation = selection.Text()
 		case 49:
-			student.Birthday = selection.Text();
+			student.Birthday = selection.Text()
 		case 51:
 			student.IDCard = selection.Text()
 		case 67:
@@ -148,74 +145,74 @@ func getStudentMsg(cookie, password string) {
 		}
 	})
 	student.Password = password
-	db.Where(Student{Num:student.Num}).FirstOrCreate(&student)
+	db.Where(Student{Num: student.Num}).FirstOrCreate(&student)
 	db.Save(&student)
 }
 
 // 验证码和Cookie
-func getCaptchaAndCookie() (captcha string,cookie string, err error) {
-  	fmt.Println("验证码获取")
+func getCaptchaAndCookie() (captcha string, cookie string, err error) {
+	fmt.Println("验证码获取")
 	i := 0
 	for {
 		if i >= 5 {
 			break
 		}
-		// 获取验证码
-		req, _ := http.NewRequest("http://jxxt.sues.edu.cn/eams/captcha/image.action", strings.NewReader(""))
+
+		req, _ := http.NewRequest("GET", "http://jxxt.sues.edu.cn/eams/captcha/image.action", strings.NewReader(""))
 		client := &http.Client{
 			Transport: netTransport,
 		}
 		resp, _ := client.Do(req)
+		// 获取验证码
 		body, _ := ioutil.ReadAll(resp.Body)
 		// 生成图片名
 		imgName := getRandomString(10)
 		out, _ := os.Create(imgName)
-		// 删除临时文件
-		defer os.Remove(imgName)
-		io.Copy(out, bytes.NewReader(body))
+		_, err = io.Copy(out, bytes.NewReader(body))
 		// 获取cookie
 		cookies := resp.Header["Set-Cookie"]
-		JSESSIONID := strings.Split(cookies[0],";")[0]
-		test := strings.Split(cookies[1],";")[0]
+		JSESSIONID := strings.Split(cookies[0], ";")[0]
+		test := strings.Split(cookies[1], ";")[0]
 		cookie = JSESSIONID + ";popped='';" + test
 		fmt.Println("cookie")
 		fmt.Println(cookie)
 		// 识别验证码
-		cmd := exec.Command("/bin/bash", "-c", "tesseract " + imgName + " " + imgName + " -l eng" )
+		cmd := exec.Command("/bin/bash", "-c", "tesseract "+imgName+" "+imgName+" -l eng")
 		cmd.Run()
-		captchaTxt,_ := ioutil.ReadFile(imgName + ".txt")
-		// 删除临时文件
-		defer os.Remove(imgName + ".txt")
+		captchaTxt, _ := ioutil.ReadFile(imgName + ".txt")
 		captcha = strings.Split(string(captchaTxt), "\n")[0]
-		captcha = strings.Replace(captcha, " ", "",-1)
-		isValid,_ := regexp.MatchString("^[a-z]{4,5}$",captcha)
+		captcha = strings.Replace(captcha, " ", "", -1)
+		isValid, _ := regexp.MatchString("^[a-z]{4,5}$", captcha)
 		if !isValid {
-			fmt.Println("imgName:",imgName,"captcha:",captcha)
+			fmt.Println("imgName:", imgName, "captcha:", captcha)
 		} else {
 			return
 		}
-		i ++
+		i++
 	}
 	return
 }
 
 // 登录教学管理系统
 func loginJxxt(username, password, captcha, cookie string) (err error) {
+	fmt.Println("登录教学管理系统")
 	postValue := url.Values{
-		"loginForm.name": {username},
+		"loginForm.name":     {username},
 		"loginForm.password": {password},
-		"loginForm.captcha": {string(captcha)},
-		"encodedPassword": {""},
+		"loginForm.captcha":  {string(captcha)},
+		"encodedPassword":    {""},
 	}
 	postString := postValue.Encode()
-	req, _ := http.NewRequest("POST","http://jxxt.sues.edu.cn/eams/login.action",strings.NewReader(postString))
-	req.Header.Set("Cookie",cookie)
+	req, _ := http.NewRequest("POST", "http://jxxt.sues.edu.cn/eams/login.action", strings.NewReader(postString))
+	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{
 		Transport: netTransport,
 	}
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("debug")
+	fmt.Println(string(body))
 	if strings.Contains(string(body), "Wrong Captcha String") {
 		return errors.New("验证码错误")
 	} else if strings.Contains(string(body), "Error Password") {
@@ -226,10 +223,10 @@ func loginJxxt(username, password, captcha, cookie string) (err error) {
 }
 
 // 获取学生ID
-func getStdID(cookie string) (stdID string,err error){
-	req, _ := http.NewRequest("GET","http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=stdHome",strings.NewReader(""))
-	req.Header.Set("Cookie",cookie)
-	req.Header.Set("Referer","http://jxxt.sues.edu.cn/eams/defaultHome.action?method=moduleList&parentCode=")
+func getStdID(cookie string) (stdID string, err error) {
+	req, _ := http.NewRequest("GET", "http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=stdHome", strings.NewReader(""))
+	req.Header.Set("Cookie", cookie)
+	req.Header.Set("Referer", "http://jxxt.sues.edu.cn/eams/defaultHome.action?method=moduleList&parentCode=")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{
 		Transport: netTransport,
@@ -237,15 +234,15 @@ func getStdID(cookie string) (stdID string,err error){
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
 	temp := strings.Split(string(body), "javascript:getCourseTable('std','")[1]
-	stdID = strings.Split(temp,"',event)")[0]
+	stdID = strings.Split(temp, "',event)")[0]
 	return
 }
 
 // 获取课表数据
 func kgetCourses(cookie, stdID string) (courses []Course, err error) {
-  	fmt.Println("获取课表数据")
-	req, _ := http.NewRequest("GET","http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=courseTable&setting.forSemester=1&setting.kind=std&semester.id=441&ids=" + stdID + "&ignoreHead=1",strings.NewReader(""))
-	req.Header.Set("Cookie",cookie)
+	fmt.Println("获取课表数据")
+	req, _ := http.NewRequest("GET", "http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=courseTable&setting.forSemester=1&setting.kind=std&semester.id=441&ids="+stdID+"&ignoreHead=1", strings.NewReader(""))
+	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{
 		Transport: netTransport,
@@ -255,13 +252,13 @@ func kgetCourses(cookie, stdID string) (courses []Course, err error) {
 	temp := strings.Split(string(body), "var activity=null;")[1]
 	temp = strings.Split(temp, "table0.marshalTable")[0]
 	courseStrs := strings.Split(temp, "activity = new TaskActivity(")
-	for i,class := range courseStrs {
+	for i, class := range courseStrs {
 		if i == 0 {
 			continue
 		}
-		lines := strings.Split(class,"\n")
+		lines := strings.Split(class, "\n")
 		var course Course
-		for _,line := range lines {
+		for _, line := range lines {
 			if len(line) > 80 {
 				// 课程
 				courseStrArr := strings.Split(line, "\"")
@@ -269,14 +266,13 @@ func kgetCourses(cookie, stdID string) (courses []Course, err error) {
 				course.Name = courseStrArr[7]
 				course.Address = courseStrArr[11]
 				course.Week = courseStrArr[13]
-			} else if len(line) < 30 && len(line) >10 {
+			} else if len(line) < 30 && len(line) > 10 {
 				// 星期和节数
-				course.Index,_ = strconv.Atoi(string(line[8]))
+				course.Index, _ = strconv.Atoi(string(line[8]))
 				if course.Week != "" {
 					course.Time = course.Time + ","
 				}
-				// index =2*unitCount+7;
-				course.Time = course.Time + strings.Split(strings.Split(line,"+")[1],";\r")[0]
+				course.Time = course.Time + string(line[len(line)-3])
 			}
 		}
 		course.Time = course.Time[1:]
@@ -286,7 +282,7 @@ func kgetCourses(cookie, stdID string) (courses []Course, err error) {
 }
 
 // 获得随机字符串
-func  getRandomString(l int) string {
+func getRandomString(l int) string {
 	str := "0123456789abcdefghijklmnopqrstuvwxyz"
 	bytes := []byte(str)
 	result := []byte{}
@@ -296,4 +292,3 @@ func  getRandomString(l int) string {
 	}
 	return string(result)
 }
-

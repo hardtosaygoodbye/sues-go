@@ -23,6 +23,8 @@ import (
 
 var db *gorm.DB
 
+var netTransport *http.Transport
+
 func init() {
 	var err error
 	db, err = gorm.Open("mysql", "root:swiftwhale2018@tcp(127.0.0.1)/pineapple?charset=utf8&parseTime=True&loc=Local")
@@ -32,6 +34,17 @@ func init() {
 	}
 	db.AutoMigrate(&Student{})
 	fmt.Println("数据库连接成功")
+
+	proxyAddr := "http://127.0.0.1:8080"
+	proxy, err := url.Parse(proxyAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	netTransport = &http.Transport{
+		Proxy: http.ProxyURL(proxy),
+		MaxIdleConnsPerHost: 10,
+		ResponseHeaderTimeout: time.Second *time.Duration(5),
+	}
 }
 
 // 接口
@@ -85,7 +98,9 @@ func getStudentMsg(cookie, password string) {
 	req.Header.Set("Cookie",cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", "http://jxxt.sues.edu.cn/eams/d…?method=moduleList&parentCode=")
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: netTransport,
+	}
 	resp, _ := client.Do(req)
 	doc, _ := goquery.NewDocumentFromReader(resp.Body)
 	var student Student
@@ -146,11 +161,11 @@ func getCaptchaAndCookie() (captcha string,cookie string, err error) {
 			break
 		}
 		// 获取验证码
-		resp, err0 := http.Get("http://jxxt.sues.edu.cn/eams/captcha/image.action")
-		if err0 != nil {
-			err = errors.New("获取验证码失败")
-			return
+		req, _ := http.NewRequest("http://jxxt.sues.edu.cn/eams/captcha/image.action", strings.NewReader(""))
+		client := &http.Client{
+			Transport: netTransport,
 		}
+		resp, _ := client.Do(req)
 		body, _ := ioutil.ReadAll(resp.Body)
 		// 生成图片名
 		imgName := getRandomString(10)
@@ -196,7 +211,9 @@ func loginJxxt(username, password, captcha, cookie string) (err error) {
 	req, _ := http.NewRequest("POST","http://jxxt.sues.edu.cn/eams/login.action",strings.NewReader(postString))
 	req.Header.Set("Cookie",cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: netTransport,
+	}
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
 	if strings.Contains(string(body), "Wrong Captcha String") {
@@ -214,7 +231,9 @@ func getStdID(cookie string) (stdID string,err error){
 	req.Header.Set("Cookie",cookie)
 	req.Header.Set("Referer","http://jxxt.sues.edu.cn/eams/defaultHome.action?method=moduleList&parentCode=")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: netTransport,
+	}
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
 	temp := strings.Split(string(body), "javascript:getCourseTable('std','")[1]
@@ -228,7 +247,9 @@ func kgetCourses(cookie, stdID string) (courses []Course, err error) {
 	req, _ := http.NewRequest("GET","http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=courseTable&setting.forSemester=1&setting.kind=std&semester.id=441&ids=" + stdID + "&ignoreHead=1",strings.NewReader(""))
 	req.Header.Set("Cookie",cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: netTransport,
+	}
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
 	temp := strings.Split(string(body), "var activity=null;")[1]

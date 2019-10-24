@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -22,9 +22,21 @@ import (
 	"time"
 )
 
-var db *gorm.DB
-
 var netTransport *http.Transport
+
+func init() {
+	var err error
+	proxyAddr := "http://127.0.0.1:8080"
+	proxy, err := url.Parse(proxyAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	netTransport = &http.Transport{
+		Proxy:                 http.ProxyURL(proxy),
+		MaxIdleConnsPerHost:   10,
+		ResponseHeaderTimeout: time.Second * time.Duration(5),
+	}
+}
 
 // 接口
 func GetSUESCourses(c *gin.Context) {

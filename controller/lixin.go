@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
@@ -97,7 +98,7 @@ func getLixinCourses(info lixinInfo) (courses []model.Course) {
 				course.Teacher = courseStrArr[3]
 				course.Name = courseStrArr[7]
 				course.Address = courseStrArr[11]
-				course.Week = strings.Split(courseStrArr[14], ")")[0][1:]
+				course.Week = dec2bin(strings.Split(courseStrArr[14], ")")[0][1:])
 			} else {
 				// 星期和节数
 				arr := strings.Split(line, "addActivityByTime(")
@@ -117,4 +118,18 @@ type lixinInfo struct {
 	IDS        string
 	URP_SID    string
 	JSESSIONID string
+}
+
+func dec2bin(str string) string {
+	n, _ := strconv.ParseInt(str, 10, 64)
+	s := ""
+	for q := n; q > 0; q = q / 2 {
+		m := q % 2
+		s = fmt.Sprintf("%v%v", m, s)
+	}
+	l := 54 - len(s)
+	for i := 0; i < l; i++ {
+		s = fmt.Sprintf("0%v", s)
+	}
+	return s
 }

@@ -17,7 +17,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sues-go/driver/mysql"
 	"sues-go/model"
 	"time"
 )
@@ -26,7 +25,7 @@ var netTransport *http.Transport
 
 func init() {
 	var err error
-	proxyAddr := "http://127.0.0.1:8080"
+	proxyAddr := "http://118.25.210.52:8080"
 	proxy, err := url.Parse(proxyAddr)
 	if err != nil {
 		log.Fatal(err)
@@ -80,11 +79,7 @@ Start:
 		return
 	}
 	// 缓存账号
-	mysql.MainDb.Save(&model.Student{
-		School:   "SUES",
-		Username: username,
-		Password: password,
-	})
+	go saveAccount("SUES", username, password)
 	c.JSON(200, courses)
 }
 

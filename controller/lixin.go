@@ -1,11 +1,12 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
+	"sues-go/model"
 )
 
 // 接口
@@ -20,13 +21,16 @@ func GetLIXINCourses(c *gin.Context) {
 		c.JSON(400, gin.H{"detail": "密码缺失"})
 	}
 
+	// 登录
 	info := loginLixin(username, password)
 
-	getLixinCourses(info)
+	// 拿课表
+	courses := getLixinCourses(info)
 
 	// 缓存账号
 	go saveAccount("LIXIN", username, password)
-	c.JSON(200, nil)
+
+	c.JSON(200, courses)
 }
 
 func loginLixin(u, p string) lixinInfo {
@@ -66,7 +70,7 @@ func loginLixin(u, p string) lixinInfo {
 	}
 }
 
-func getLixinCourses(info lixinInfo) {
+func getLixinCourses(info lixinInfo) (courses []model.Course) {
 	client := &http.Client{}
 	url := "http://newjw.lixin.edu.cn/webapp/std/edu/lesson/timetable!courseTable.action"
 	req, _ := http.NewRequest("POST", url, strings.NewReader("setting.kind=std&weekSpan=6&semester.id=1640420191&ids="+info.IDS))
@@ -75,7 +79,38 @@ func getLixinCourses(info lixinInfo) {
 	req.Header.Set("Cookie", "URP_EDU=%7B%22projectId%22%3A5%2C%22semesterId%22%3A1640420191%7D; JSESSIONID="+info.JSESSIONID+"; URP_SID="+info.URP_SID+"; SERVERID=s6")
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
+
+	courses = make([]model.Course, 0)
+	temp := strings.Split(string(body), "var activity=null;")[1]
+	temp = strings.Split(temp, "table0.marshalTable")[0]
+	courseStrs := strings.Split(temp, "activity = table0.newActivity(")
+	for i, class := range courseStrs {
+		if i == 0 {
+			continue
+		}
+		lines := strings.Split(class, "\n")
+		var course model.Course
+		for _, line := range lines {
+			if len(line) > 80 {
+				// 课程
+				courseStrArr := strings.Split(line, "\"")
+				course.Teacher = courseStrArr[3]
+				course.Name = courseStrArr[7]
+				course.Address = courseStrArr[11]
+				course.Week = strings.Split(courseStrArr[14], ")")[0][1:]
+			} else {
+				// 星期和节数
+				arr := strings.Split(line, "addActivityByTime(")
+				if len(arr) > 1 {
+					arr = strings.Split(arr[1], ",")
+					course.Index, _ = strconv.Atoi(arr[1])
+					course.Time = arr[2] + "~" + strings.Split(arr[3], ")")[0]
+				}
+			}
+		}
+		courses = append(courses, course)
+	}
+	return
 }
 
 type lixinInfo struct {

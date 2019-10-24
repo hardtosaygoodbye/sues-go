@@ -30,6 +30,11 @@ func SetupRouter() *gin.Engine {
 		routerSUES.GET("/courses", controller.GetSUESCourses)
 	}
 
+	routerLIXIN := router.Group("/lixin")
+	{
+		routerLIXIN.GET("/courses", controller.GetLIXINCourses)
+	}
+
 	return router
 }
 

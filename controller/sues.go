@@ -180,6 +180,7 @@ func getStdID(cookie string) (stdID string, err error) {
 // 获取课表数据
 func kgetCourses(cookie, stdID string) (courses []model.Course, err error) {
 	fmt.Println("获取课表数据")
+	courses = make([]model.Course, 0)
 	req, _ := http.NewRequest("GET", "http://jxxt.sues.edu.cn/eams/courseTableForStd.action?method=courseTable&setting.forSemester=1&setting.kind=std&semester.id=441&ids="+stdID+"&ignoreHead=1", strings.NewReader(""))
 	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
